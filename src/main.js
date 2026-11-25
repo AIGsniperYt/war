@@ -14,6 +14,7 @@ const world = new WorldState();
 const sim = new Simulation(world);
 
 let debug = false;
+let selectedId = -1;
 const ui = createUI(uiRoot, {
   onStart() {
     if (world.phase === PHASE_DEPLOYMENT) sim.startBattle();
@@ -24,9 +25,11 @@ const ui = createUI(uiRoot, {
   },
   onReset() {
     sim.resetToDeployment();
+    selectedId = -1;
   },
   onClear() {
     sim.clearAll();
+    selectedId = -1;
   },
   onDebug(v) { debug = !!v; },
 });
@@ -80,7 +83,25 @@ function removeAt(wx, wy) {
     const d2 = dx * dx + dy * dy;
     if (d2 <= bestD2) { bestD2 = d2; best = i; }
   }
-  if (best >= 0) world.removeAt(best);
+  if (best >= 0) {
+    world.removeAt(best);
+    if (selectedId === best) selectedId = -1;
+    else if (selectedId === world.count) selectedId = best; // swapped element moved here
+  }
+}
+
+function pickSoldier(wx, wy) {
+  const radius = 16 / camera.zoom + 8;
+  let best = -1;
+  let bestD2 = radius * radius;
+  for (let i = 0; i < world.count; i++) {
+    if (!world.alive[i]) continue;
+    const dx = world.x[i] - wx;
+    const dy = world.y[i] - wy;
+    const d2 = dx * dx + dy * dy;
+    if (d2 <= bestD2) { bestD2 = d2; best = i; }
+  }
+  selectedId = best;
 }
 
 canvas.addEventListener('contextmenu', e => e.preventDefault());
@@ -98,8 +119,12 @@ canvas.addEventListener('mousedown', e => {
   }
 
   if (e.button === 0) {
-    if (ui.state.mode === 'place') placeBrush(mouse.world.x, mouse.world.y);
-    else removeAt(mouse.world.x, mouse.world.y);
+    if (world.phase === PHASE_DEPLOYMENT) {
+      if (ui.state.mode === 'place') placeBrush(mouse.world.x, mouse.world.y);
+      else removeAt(mouse.world.x, mouse.world.y);
+    } else {
+      pickSoldier(mouse.world.x, mouse.world.y);
+    }
   }
 });
 
@@ -162,11 +187,15 @@ function frame(now) {
 
   sim.update(dt);
 
+  if (!dragging) {
+    canvas.style.cursor = world.phase === PHASE_DEPLOYMENT ? 'crosshair' : 'default';
+  }
+
   renderer.clear();
   renderer.drawGrid();
-  renderer.drawSoldiers(world, debug);
+  renderer.drawSoldiers(world, debug, selectedId);
   renderer.drawBrushPreview(mouse.world, ui.state.brush, ui.state.team, world.phase);
-  ui.update(world, sim);
+  ui.update(world, sim, selectedId);
 
   requestAnimationFrame(frame);
 }

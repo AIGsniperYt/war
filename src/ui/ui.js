@@ -1,4 +1,5 @@
-import { PHASE_DEPLOYMENT, PHASE_ENDED, PHASE_RUNNING, TEAM_BLUE, TEAM_RED } from '../sim/constants.js';
+import { PHASE_DEPLOYMENT, PHASE_ENDED, PHASE_RUNNING, TEAM_BLUE, TEAM_RED, ACTION_PHASE_IDLE, ACTION_PHASE_WINDUP, ACTION_PHASE_ACTIVE, ACTION_PHASE_RECOVERY } from '../sim/constants.js';
+import { getAction } from '../sim/actions.js';
 
 export function createUI(root, callbacks) {
   root.innerHTML = `
@@ -32,11 +33,12 @@ export function createUI(root, callbacks) {
       </div>
       <div class="stat" id="stats"></div>
       <div class="help">
-        LMB: place/remove. RMB/MMB drag: pan. Wheel: zoom.<br>
-        Debug shows FOV, targets, and attack arcs. Reset restores last deployment.
+        Deploy: LMB place/remove. Sim: LMB inspect unit.<br>
+        RMB/MMB drag: pan. Wheel: zoom. Debug shows FOV, targets, and arcs.
       </div>
     </div>
     <div class="banner" id="banner"></div>
+    <div class="inspector" id="inspector"></div>
   `;
 
   const teamRow = root.querySelector('#team-row');
@@ -49,6 +51,7 @@ export function createUI(root, callbacks) {
   const debugBtn = root.querySelector('#debug-btn');
   const statsEl = root.querySelector('#stats');
   const banner = root.querySelector('#banner');
+  const inspector = root.querySelector('#inspector');
 
   const state = { team: TEAM_RED, brush: 1, mode: 'place', debug: false };
 
@@ -88,7 +91,15 @@ export function createUI(root, callbacks) {
     callbacks.onDebug?.(state.debug);
   });
 
-  function update(simState, sim) {
+  function fmt(n, d = 1) { return Number(n).toFixed(d); }
+  function phaseName(p) {
+    if (p === ACTION_PHASE_WINDUP) return 'windup';
+    if (p === ACTION_PHASE_ACTIVE) return 'active';
+    if (p === ACTION_PHASE_RECOVERY) return 'recovery';
+    return 'idle';
+  }
+
+  function update(simState, sim, selectedId = -1) {
     const s = simState.stats();
     const paused = !!sim.paused;
     statsEl.innerHTML = `
@@ -122,6 +133,39 @@ export function createUI(root, callbacks) {
       startBtn.disabled = false;
       pauseBtn.disabled = true;
       pauseBtn.textContent = 'Pause';
+    }
+
+    if (selectedId < 0 || selectedId >= simState.count) {
+      inspector.style.display = 'none';
+      inspector.innerHTML = '';
+    } else {
+      const i = selectedId;
+      const cfg = simState.configOf(i);
+      const action = getAction(cfg, simState.actionId[i]);
+      const target = simState.targetId[i];
+      const teamName = simState.team[i] === TEAM_RED ? 'Red' : 'Blue';
+      const teamColor = simState.team[i] === TEAM_RED ? 'var(--red)' : 'var(--blue)';
+      inspector.style.display = 'block';
+      inspector.innerHTML = `
+        <div class="title">UNIT INSPECTOR</div>
+        <div class="stat"><strong style="color:${teamColor}">${teamName}</strong> soldier #${i} ${simState.alive[i] ? '' : '<span style="color:#ff8080">(dead)</span>'}</div>
+        <div class="stat">HP: <strong>${fmt(simState.hp[i],1)}</strong> / ${fmt(cfg.hp,0)}</div>
+        <div class="stat">Stamina: <strong>${fmt(simState.stamina[i],1)}</strong> / ${fmt(cfg.stamina,0)} (regen ${fmt(cfg.staminaRegen,1)}/s)</div>
+        <div class="stat">Pos: ${fmt(simState.x[i],1)}, ${fmt(simState.y[i],1)}</div>
+        <div class="stat">Vel: ${fmt(simState.vx[i],1)}, ${fmt(simState.vy[i],1)} | speed ${fmt(Math.hypot(simState.vx[i], simState.vy[i]),1)}</div>
+        <div class="stat">Facing: ${fmt(simState.facing[i],2)} rad | desired ${fmt(simState.desiredFacing[i],2)}</div>
+        <div class="stat">Move intent: ${fmt(simState.moveX[i],2)}, ${fmt(simState.moveY[i],2)}</div>
+        <div class="stat">Target: <strong>${target >= 0 ? '#' + target : 'none'}</strong> | commit ${fmt(simState.targetCommit[i],2)}s</div>
+        <div class="stat">Reaction timer: ${fmt(simState.reactionTimer[i],2)}s / ${fmt(cfg.reactionInterval,2)}s</div>
+        <div class="stat">Action: <strong>${action ? action.name : 'None'}</strong> | phase ${phaseName(simState.actionPhase[i])} | t ${fmt(simState.actionTimer[i],2)}s</div>
+        <div class="stat">Action target: ${simState.actionTargetId[i] >= 0 ? '#' + simState.actionTargetId[i] : 'none'} | didHit ${simState.actionDidHit[i]}</div>
+        <div class="stat">Hit flash: ${fmt(simState.hitFlash[i],2)}</div>
+        <hr style="border:0;border-top:1px solid rgba(255,255,255,0.08);margin:8px 0;">
+        <div class="stat">Config: ${cfg.name}</div>
+        <div class="stat">Speed ${fmt(cfg.speed,0)} | Accel ${fmt(cfg.accel,0)} | Turn ${fmt(cfg.turnSpeed,2)}</div>
+        <div class="stat">Perception ${fmt(cfg.perceptionRange,0)} | FOV ${fmt(cfg.fov,2)} | Aggro ${fmt(cfg.aggression,2)}</div>
+        <div class="stat">Actions: ${cfg.actions.map(a => a.name).join(', ')}</div>
+      `;
     }
   }
 

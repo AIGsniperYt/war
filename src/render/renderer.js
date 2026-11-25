@@ -58,7 +58,7 @@ export class Renderer {
     ctx.restore();
   }
 
-  drawSoldiers(state, debug = false) {
+  drawSoldiers(state, debug = false, selectedId = -1) {
     const { ctx, camera } = this;
     const w = camera.width, h = camera.height;
     const z = camera.zoom;
@@ -156,6 +156,18 @@ export class Renderer {
       ctx.lineTo(backX - px * wing, backY - py * wing);
       ctx.closePath();
       ctx.fill();
+    }
+
+    if (selectedId >= 0 && selectedId < state.count) {
+      const sx = (state.x[selectedId] - camera.x) * z + w / 2;
+      const sy = (state.y[selectedId] - camera.y) * z + h / 2;
+      if (sx >= -40 && sy >= -40 && sx <= w + 40 && sy <= h + 40) {
+        ctx.strokeStyle = state.alive[selectedId] ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.35)';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(sx, sy, Math.max(8, 9 * z), 0, Math.PI * 2);
+        ctx.stroke();
+      }
     }
 
     ctx.restore();

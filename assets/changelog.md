@@ -12,3 +12,4 @@
 - **MAJOR: added: crowds that push and squeeze** — soldiers have soft physical bodies. They slow down in dense crowds, shove through gaps, and get displaced by heavy hits instead of clipping through each other.
 - **MAJOR: added: directional combat** — soldiers wind up strikes, block from the front, and use displacement moves to barge through or kick enemies back. Battles play out until one side has no one left standing.
 - **changed: clearer battles and tighter armies** — you can pause the fight, the status sits at the top center, hits flash white, attacks show their arcs, and soldiers stick with their army instead of drifting off alone. Debug view can show FOV and target lines when you want to inspect what's happening.
+- **added: unit inspector** — click any soldier during a battle to inspect its live state: health, stamina, target, action, cooldowns, movement, and config. The sandbox hides nothing interesting.
