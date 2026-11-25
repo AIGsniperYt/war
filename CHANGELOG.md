@@ -30,4 +30,4 @@
 - **UI layout** — controls moved to top-right; centered status banner replaces the top-right phase pill. Banner reflects deployment/running/paused/ended states.
 - **Battle readability** — hit flashes on damage, action arc indicators for windup/active/recovery, optional debug overlay (FOV cones + target lines).
 - **Cohesion/alignment fix** — stronger ally cohesion and alignment, regrouping when no target is visible, isolated units scan instead of wandering off. Reduces "deserting" behavior.
-- **Unit inspector** — during sim/ended phases cursor returns to pointer; clicking a soldier selects it, highlights it, and opens a left-side inspector showing HP/stamina/position/velocity/facing/target/reaction/action/config metadata.
+- **Unit inspector** — during sim/ended phases cursor returns to pointer; hovering highlights units, clicking selects with a clear ring, and a left-side inspector shows organized stats (HP/stamina bars), compact state (position/speed/facing/target/action/reaction), and visual overlay toggles (target line, move intent, FOV, action arc).

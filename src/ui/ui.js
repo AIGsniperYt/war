@@ -52,8 +52,21 @@ export function createUI(root, callbacks) {
   const statsEl = root.querySelector('#stats');
   const banner = root.querySelector('#banner');
   const inspector = root.querySelector('#inspector');
+  let lastInspectorId = -2;
+  inspector.addEventListener('change', e => {
+    const t = e.target;
+    if (t && t.dataset && t.dataset.inspect) {
+      state.inspect[t.dataset.inspect] = !!t.checked;
+    }
+  });
 
-  const state = { team: TEAM_RED, brush: 1, mode: 'place', debug: false };
+  const state = {
+    team: TEAM_RED,
+    brush: 1,
+    mode: 'place',
+    debug: false,
+    inspect: { target: true, move: true, fov: false, action: true },
+  };
 
   function setActive(row, attr, value) {
     row.querySelectorAll('button').forEach(b => b.classList.toggle('active', b.dataset[attr] === String(value)));
@@ -137,35 +150,91 @@ export function createUI(root, callbacks) {
 
     if (selectedId < 0 || selectedId >= simState.count) {
       inspector.style.display = 'none';
-      inspector.innerHTML = '';
+      if (lastInspectorId !== -1) { inspector.innerHTML = ''; lastInspectorId = -1; }
     } else {
-      const i = selectedId;
-      const cfg = simState.configOf(i);
-      const action = getAction(cfg, simState.actionId[i]);
-      const target = simState.targetId[i];
-      const teamName = simState.team[i] === TEAM_RED ? 'Red' : 'Blue';
-      const teamColor = simState.team[i] === TEAM_RED ? 'var(--red)' : 'var(--blue)';
+      if (lastInspectorId !== selectedId) buildInspector(selectedId, simState);
+      updateInspector(selectedId, simState);
+    }
+
+    function buildInspector(id, st) {
+      lastInspectorId = id;
+      const cfg = st.configOf(id);
+      const teamColor = st.team[id] === TEAM_RED ? 'var(--red)' : 'var(--blue)';
       inspector.style.display = 'block';
       inspector.innerHTML = `
-        <div class="title">UNIT INSPECTOR</div>
-        <div class="stat"><strong style="color:${teamColor}">${teamName}</strong> soldier #${i} ${simState.alive[i] ? '' : '<span style="color:#ff8080">(dead)</span>'}</div>
-        <div class="stat">HP: <strong>${fmt(simState.hp[i],1)}</strong> / ${fmt(cfg.hp,0)}</div>
-        <div class="stat">Stamina: <strong>${fmt(simState.stamina[i],1)}</strong> / ${fmt(cfg.stamina,0)} (regen ${fmt(cfg.staminaRegen,1)}/s)</div>
-        <div class="stat">Pos: ${fmt(simState.x[i],1)}, ${fmt(simState.y[i],1)}</div>
-        <div class="stat">Vel: ${fmt(simState.vx[i],1)}, ${fmt(simState.vy[i],1)} | speed ${fmt(Math.hypot(simState.vx[i], simState.vy[i]),1)}</div>
-        <div class="stat">Facing: ${fmt(simState.facing[i],2)} rad | desired ${fmt(simState.desiredFacing[i],2)}</div>
-        <div class="stat">Move intent: ${fmt(simState.moveX[i],2)}, ${fmt(simState.moveY[i],2)}</div>
-        <div class="stat">Target: <strong>${target >= 0 ? '#' + target : 'none'}</strong> | commit ${fmt(simState.targetCommit[i],2)}s</div>
-        <div class="stat">Reaction timer: ${fmt(simState.reactionTimer[i],2)}s / ${fmt(cfg.reactionInterval,2)}s</div>
-        <div class="stat">Action: <strong>${action ? action.name : 'None'}</strong> | phase ${phaseName(simState.actionPhase[i])} | t ${fmt(simState.actionTimer[i],2)}s</div>
-        <div class="stat">Action target: ${simState.actionTargetId[i] >= 0 ? '#' + simState.actionTargetId[i] : 'none'} | didHit ${simState.actionDidHit[i]}</div>
-        <div class="stat">Hit flash: ${fmt(simState.hitFlash[i],2)}</div>
-        <hr style="border:0;border-top:1px solid rgba(255,255,255,0.08);margin:8px 0;">
-        <div class="stat">Config: ${cfg.name}</div>
-        <div class="stat">Speed ${fmt(cfg.speed,0)} | Accel ${fmt(cfg.accel,0)} | Turn ${fmt(cfg.turnSpeed,2)}</div>
-        <div class="stat">Perception ${fmt(cfg.perceptionRange,0)} | FOV ${fmt(cfg.fov,2)} | Aggro ${fmt(cfg.aggression,2)}</div>
-        <div class="stat">Actions: ${cfg.actions.map(a => a.name).join(', ')}</div>
+        <div class="insp-head">
+          <div>
+            <div class="title" style="margin-bottom:2px">UNIT INSPECTOR</div>
+            <div class="stat"><strong style="color:${teamColor}" id="insp-team"></strong> <span id="insp-id"></span> <span id="insp-dead" style="color:#ff8080"></span></div>
+          </div>
+          <button id="insp-close" class="insp-close">×</button>
+        </div>
+
+        <div class="insp-section">
+          <div class="insp-row"><span>HP</span><span id="insp-hp-text"></span></div>
+          <div class="bar"><div class="bar-fill hp" id="insp-hp-bar"></div></div>
+          <div class="insp-row"><span>Stamina</span><span id="insp-sta-text"></span></div>
+          <div class="bar"><div class="bar-fill sta" id="insp-sta-bar"></div></div>
+        </div>
+
+        <div class="insp-section">
+          <div class="insp-kv"><span>Position</span><strong id="insp-pos"></strong></div>
+          <div class="insp-kv"><span>Speed</span><strong id="insp-speed"></strong></div>
+          <div class="insp-kv"><span>Facing</span><strong id="insp-facing"></strong></div>
+        </div>
+
+        <div class="insp-section">
+          <div class="insp-kv"><span>Target</span><strong id="insp-target"></strong></div>
+          <div class="insp-kv"><span>Action</span><strong id="insp-action"></strong></div>
+          <div class="insp-kv"><span>Reaction</span><strong id="insp-reaction"></strong></div>
+        </div>
+
+        <div class="insp-section">
+          <div class="label" style="margin-bottom:8px">Visual overlays</div>
+          <label class="toggle"><input type="checkbox" data-inspect="target" ${state.inspect.target ? 'checked' : ''}><span>Target line</span></label>
+          <label class="toggle"><input type="checkbox" data-inspect="move" ${state.inspect.move ? 'checked' : ''}><span>Move intent</span></label>
+          <label class="toggle"><input type="checkbox" data-inspect="fov" ${state.inspect.fov ? 'checked' : ''}><span>FOV cone</span></label>
+          <label class="toggle"><input type="checkbox" data-inspect="action" ${state.inspect.action ? 'checked' : ''}><span>Action arc highlight</span></label>
+        </div>
+
+        <div class="insp-section" style="margin-bottom:0">
+          <div class="label" style="margin-bottom:8px">Config</div>
+          <div class="insp-kv"><span>Archetype</span><strong>${cfg.name}</strong></div>
+          <div class="insp-kv"><span>Speed / Accel</span><strong>${fmt(cfg.speed,0)} / ${fmt(cfg.accel,0)}</strong></div>
+          <div class="insp-kv"><span>Turn / Reaction</span><strong>${fmt(cfg.turnSpeed,2)} / ${fmt(cfg.reactionInterval,2)}s</strong></div>
+          <div class="insp-kv"><span>Perception / FOV</span><strong>${fmt(cfg.perceptionRange,0)} / ${fmt(cfg.fov,2)}</strong></div>
+          <div class="insp-kv"><span>Aggression</span><strong>${fmt(cfg.aggression,2)}</strong></div>
+        </div>
       `;
+      const close = inspector.querySelector('#insp-close');
+      if (close) close.addEventListener('click', () => { callbacks.onClearSelection?.(); });
+    }
+
+    function updateInspector(id, st) {
+      if (id < 0 || id >= st.count) return;
+      const cfg = st.configOf(id);
+      const action = getAction(cfg, st.actionId[id]);
+      const target = st.targetId[id];
+      const hpPct = Math.max(0, Math.min(1, st.hp[id] / cfg.hp));
+      const staPct = Math.max(0, Math.min(1, st.stamina[id] / cfg.stamina));
+      const speed = Math.hypot(st.vx[id], st.vy[id]);
+      const teamName = st.team[id] === TEAM_RED ? 'Red' : 'Blue';
+      const set = (sel, txt) => { const el = inspector.querySelector(sel); if (el) el.textContent = txt; };
+      set('#insp-team', teamName);
+      set('#insp-id', `soldier #${id}`);
+      set('#insp-dead', st.alive[id] ? '' : '(dead)');
+      set('#insp-hp-text', `${fmt(st.hp[id],1)} / ${fmt(cfg.hp,0)}`);
+      set('#insp-sta-text', `${fmt(st.stamina[id],1)} / ${fmt(cfg.stamina,0)}`);
+      set('#insp-pos', `${fmt(st.x[id],1)}, ${fmt(st.y[id],1)}`);
+      set('#insp-speed', `${fmt(speed,1)} / ${fmt(cfg.speed,0)}`);
+      set('#insp-facing', `${fmt(st.facing[id],2)} rad`);
+      set('#insp-target', target >= 0 ? `#${target} (${fmt(st.targetCommit[id],1)}s commit)` : 'none');
+      set('#insp-action', `${action ? action.name : 'None'} · ${phaseName(st.actionPhase[id])} ${fmt(st.actionTimer[id],2)}s`);
+      set('#insp-reaction', `${fmt(st.reactionTimer[id],2)}s`);
+      const hpBar = inspector.querySelector('#insp-hp-bar');
+      const staBar = inspector.querySelector('#insp-sta-bar');
+      if (hpBar) hpBar.style.width = `${hpPct * 100}%`;
+      if (staBar) staBar.style.width = `${staPct * 100}%`;
     }
   }
 

@@ -15,6 +15,7 @@ const sim = new Simulation(world);
 
 let debug = false;
 let selectedId = -1;
+let hoverId = -1;
 const ui = createUI(uiRoot, {
   onStart() {
     if (world.phase === PHASE_DEPLOYMENT) sim.startBattle();
@@ -32,6 +33,7 @@ const ui = createUI(uiRoot, {
     selectedId = -1;
   },
   onDebug(v) { debug = !!v; },
+  onClearSelection() { selectedId = -1; },
 });
 
 let mouse = { x: 0, y: 0, world: { x: 0, y: 0 }, down: false, button: 0 };
@@ -90,7 +92,7 @@ function removeAt(wx, wy) {
   }
 }
 
-function pickSoldier(wx, wy) {
+function findSoldier(wx, wy) {
   const radius = 16 / camera.zoom + 8;
   let best = -1;
   let bestD2 = radius * radius;
@@ -101,7 +103,11 @@ function pickSoldier(wx, wy) {
     const d2 = dx * dx + dy * dy;
     if (d2 <= bestD2) { bestD2 = d2; best = i; }
   }
-  selectedId = best;
+  return best;
+}
+
+function pickSoldier(wx, wy) {
+  selectedId = findSoldier(wx, wy);
 }
 
 canvas.addEventListener('contextmenu', e => e.preventDefault());
@@ -138,6 +144,8 @@ window.addEventListener('mousemove', e => {
     camera.pan(dx, dy);
     dragLast = { x: p.x, y: p.y };
   }
+  if (world.phase !== PHASE_DEPLOYMENT) hoverId = findSoldier(mouse.world.x, mouse.world.y);
+  else hoverId = -1;
 });
 
 window.addEventListener('mouseup', e => {
@@ -188,12 +196,13 @@ function frame(now) {
   sim.update(dt);
 
   if (!dragging) {
-    canvas.style.cursor = world.phase === PHASE_DEPLOYMENT ? 'crosshair' : 'default';
+    if (world.phase === PHASE_DEPLOYMENT) canvas.style.cursor = 'crosshair';
+    else canvas.style.cursor = hoverId >= 0 ? 'pointer' : 'default';
   }
 
   renderer.clear();
   renderer.drawGrid();
-  renderer.drawSoldiers(world, debug, selectedId);
+  renderer.drawSoldiers(world, debug, selectedId, hoverId, ui.state.inspect);
   renderer.drawBrushPreview(mouse.world, ui.state.brush, ui.state.team, world.phase);
   ui.update(world, sim, selectedId);
 

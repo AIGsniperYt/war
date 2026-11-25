@@ -79,3 +79,16 @@ button.danger { color: #ffb3b3; }
   box-shadow: 0 8px 30px rgba(0,0,0,0.25);
   display: none;
 }
+.insp-head { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; margin-bottom: 10px; }
+.insp-close { padding: 2px 8px; line-height: 1; font-size: 18px; border-radius: 8px; }
+.insp-section { padding: 10px 0; border-top: 1px solid rgba(255,255,255,0.07); }
+.insp-row, .insp-kv { display: flex; justify-content: space-between; gap: 12px; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+.insp-kv strong, .insp-row span:last-child { color: var(--text); font-weight: 500; text-align: right; }
+.bar { height: 8px; background: rgba(255,255,255,0.08); border-radius: 999px; overflow: hidden; margin-bottom: 10px; }
+.bar:last-child { margin-bottom: 0; }
+.bar-fill { height: 100%; border-radius: 999px; transition: width 0.08s linear; }
+.bar-fill.hp { background: linear-gradient(90deg, #ff5f6d, #ff8a7a); }
+.bar-fill.sta { background: linear-gradient(90deg, #7cc4ff, #5da9ff); }
+.toggle { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); margin-bottom: 6px; cursor: pointer; }
+.toggle input { accent-color: #8fb7ff; }
+.toggle:last-child { margin-bottom: 0; }
