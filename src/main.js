@@ -13,14 +13,17 @@ const renderer = new Renderer(canvas, camera);
 const world = new WorldState();
 const sim = new Simulation(world);
 
+const COMMIT_HASH = '06ba8bb';
 let debug = false;
 let selectedId = -1;
 let hoverId = -1;
+let currentScenario = 'custom';
 
 function loadPreset(name) {
   sim.clearAll();
   selectedId = -1;
   hoverId = -1;
+  currentScenario = name;
 
   const makeFrontline = (countPerSide, cols, spacing, gap) => {
     const rows = Math.ceil(countPerSide / cols);
@@ -57,14 +60,17 @@ const ui = createUI(uiRoot, {
   onReset() {
     sim.resetToDeployment();
     selectedId = -1;
+    currentScenario = 'custom';
   },
   onClear() {
     sim.clearAll();
     selectedId = -1;
+    currentScenario = 'custom';
   },
   onDebug(v) { debug = !!v; },
   onClearSelection() { selectedId = -1; },
   onLoadPreset(name) { loadPreset(name); },
+  onBenchLog() { logBenchmark(); },
 });
 
 let mouse = { x: 0, y: 0, world: { x: 0, y: 0 }, down: false, button: 0 };
@@ -220,6 +226,30 @@ canvas.addEventListener('touchmove', e => {
   }
 }, { passive: true });
 canvas.addEventListener('touchend', () => { touchPan = null; });
+
+function logBenchmark() {
+  const s = world.stats();
+  const lines = [
+    '=== WAR BENCHMARK ===',
+    `commit: ${COMMIT_HASH}`,
+    `scenario: ${currentScenario}`,
+    `phase: ${world.phase}${sim.paused ? ' (paused)' : ''}`,
+    `time: ${world.time.toFixed(2)}s`,
+    `soldiers: ${world.count} (alive ${s.redAlive + s.blueAlive}, red ${s.redAlive}/${s.redTotal}, blue ${s.blueAlive}/${s.blueTotal})`,
+    `fps: ${(perf.fps || 0).toFixed(1)}`,
+    `frameMs: ${(perf.frameMs || 0).toFixed(2)}`,
+    `simMsPerFrame: ${(perf.avgSimMs || 0).toFixed(2)}`,
+    `stepsPerFrame: ${perf.steps || 0}`,
+    '=====================',
+  ];
+  const text = lines.join('\n');
+  console.log(text);
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).catch(() => {});
+  }
+  return text;
+}
+window.WAR_BENCH = { log: logBenchmark, perf, world, sim };
 
 function frame(now) {
   const dt = Math.min(0.05, (now - lastTime) / 1000);

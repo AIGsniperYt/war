@@ -54,7 +54,9 @@ export function createUI(root, callbacks) {
         <div class="row"><button data-preset="frontline-500">Frontline 500v500</button></div>
         <div class="row"><button data-preset="frontline-200">Frontline 200v200</button></div>
         <div class="row"><button data-preset="skirmish-100">Skirmish 100v100</button></div>
-        <div class="help">Presets replace the current deployment and reset battle state.</div>
+        <div class="label" style="margin-top:10px;">Benchmark</div>
+        <div class="row"><button id="bench-log-btn">Log Benchmark</button></div>
+        <div class="help">Presets replace the current deployment and reset battle state. "Log Benchmark" prints a pasteable report to console (also on <code>window.WAR_BENCH.log()</code>).</div>
       </div>
     </div>
     <div class="banner" id="banner"></div>
@@ -92,6 +94,8 @@ export function createUI(root, callbacks) {
     if (!btn) return;
     callbacks.onLoadPreset?.(btn.dataset.preset);
   });
+  const benchLogBtn = root.querySelector('#bench-log-btn');
+  benchLogBtn.addEventListener('click', () => callbacks.onBenchLog?.());
   inspector.addEventListener('change', e => {
     const t = e.target;
     if (t && t.dataset && t.dataset.inspect) {
