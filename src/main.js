@@ -24,15 +24,15 @@ function loadPreset(name) {
 
   const makeFrontline = (countPerSide, cols, spacing, gap) => {
     const rows = Math.ceil(countPerSide / cols);
-    const halfW = (cols - 1) * spacing * 0.5;
-    const halfD = (rows - 1) * spacing * 0.5;
+    const halfY = (cols - 1) * spacing * 0.5;
     for (let i = 0; i < countPerSide; i++) {
-      const r = Math.floor(i / cols);
-      const c = i % cols;
-      const x = c * spacing - halfW;
-      const y = r * spacing - halfD;
-      world.addSoldier(x - gap / 2 - halfD, y, 0, 0, 0); // red on left, facing right
-      world.addSoldier(x + gap / 2 + halfD, y, 1, Math.PI, 0); // blue on right, facing left
+      const r = Math.floor(i / cols); // depth row
+      const c = i % cols; // lateral column
+      const y = c * spacing - halfY;
+      const redX = -gap / 2 - r * spacing;
+      const blueX = gap / 2 + r * spacing;
+      world.addSoldier(redX, y, 0, 0, 0);      // red on left, facing right
+      world.addSoldier(blueX, y, 1, Math.PI, 0); // blue on right, facing left
     }
   };
 
