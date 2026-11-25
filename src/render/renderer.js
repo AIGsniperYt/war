@@ -133,6 +133,7 @@ export class Renderer {
 
   _drawInspectOverlays(state, selectedId, inspect, w, h, z) {
     if (selectedId < 0 || selectedId >= state.count) return;
+    if (!state.alive[selectedId]) return;
     const { ctx, camera } = this;
     const i = selectedId;
     const sx = (state.x[i] - camera.x) * z + w / 2;
@@ -269,13 +270,12 @@ export class Renderer {
       ctx.arc(sx, sy, r, 0, Math.PI * 2);
       ctx.stroke();
     };
-    if (hoverId >= 0 && hoverId !== selectedId) {
+    if (hoverId >= 0 && hoverId !== selectedId && state.alive[hoverId]) {
       drawRing(hoverId, 'rgba(255,255,255,0.35)', 1, Math.max(8, 8.5 * z));
     }
-    if (selectedId >= 0) {
-      const alive = state.alive[selectedId];
-      drawRing(selectedId, alive ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.4)', 2, Math.max(9, 10 * z));
-      drawRing(selectedId, alive ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.08)', 4, Math.max(11, 12 * z));
+    if (selectedId >= 0 && state.alive[selectedId]) {
+      drawRing(selectedId, 'rgba(255,255,255,0.95)', 2, Math.max(9, 10 * z));
+      drawRing(selectedId, 'rgba(255,255,255,0.18)', 4, Math.max(11, 12 * z));
     }
   }
 
