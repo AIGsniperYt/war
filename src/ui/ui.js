@@ -203,8 +203,6 @@ export function createUI(root, callbacks) {
             <div class="insp-kv"><span>Velocity</span><strong id="insp-vel"></strong></div>
             <div class="insp-kv"><span>Facing</span><strong id="insp-facing"></strong></div>
             <div class="insp-kv"><span>Move intent</span><strong id="insp-move"></strong></div>
-            <div class="insp-kv"><span>Target commit</span><strong id="insp-commit"></strong></div>
-            <div class="insp-kv"><span>Action timer</span><strong id="insp-atimer"></strong></div>
             <div class="insp-kv"><span>Action target</span><strong id="insp-atarget"></strong></div>
             <div class="insp-kv"><span>Hit flash</span><strong id="insp-flash"></strong></div>
           </div>
@@ -239,16 +237,14 @@ export function createUI(root, callbacks) {
       set('#insp-hp-text', `${fmt(st.hp[id],1)} / ${fmt(cfg.hp,0)}`);
       set('#insp-sta-text', `${fmt(st.stamina[id],1)} / ${fmt(cfg.stamina,0)}`);
       set('#insp-speed', `${fmt(speed,1)} (max ${fmt(cfg.speed,0)})`);
-      set('#insp-target', target >= 0 ? `#${target}` : 'none');
-      set('#insp-action', `${action ? action.name : 'None'} · ${phaseName(st.actionPhase[id])}`);
+      set('#insp-target', target >= 0 ? `#${target} · ${fmt(st.targetCommit[id],1)}s commit` : 'none');
+      set('#insp-action', `${action ? action.name : 'None'} · ${phaseName(st.actionPhase[id])} ${fmt(st.actionTimer[id],2)}s`);
       set('#insp-reaction', `${fmt(st.reactionTimer[id],2)}s / ${fmt(cfg.reactionInterval,2)}s`);
       // Detailed stats
       set('#insp-pos', `${fmt(st.x[id],1)}, ${fmt(st.y[id],1)}`);
       set('#insp-vel', `${fmt(st.vx[id],1)}, ${fmt(st.vy[id],1)}`);
       set('#insp-facing', `${fmt(st.facing[id],2)} rad`);
       set('#insp-move', `${fmt(st.moveX[id],2)}, ${fmt(st.moveY[id],2)}`);
-      set('#insp-commit', `${fmt(st.targetCommit[id],2)}s`);
-      set('#insp-atimer', `${fmt(st.actionTimer[id],2)}s`);
       set('#insp-atarget', st.actionTargetId[id] >= 0 ? `#${st.actionTargetId[id]}` : 'none');
       set('#insp-flash', `${fmt(st.hitFlash[id],2)}`);
       const hpBar = inspector.querySelector('#insp-hp-bar');
