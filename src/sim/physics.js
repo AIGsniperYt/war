@@ -1,24 +1,34 @@
 import { ACTION_PHASE_ACTIVE, ACTION_PHASE_WINDUP, SOLDIER_DIAMETER, SOLDIER_RADIUS } from './constants.js';
-import { clamp, length, rotateTowards } from '../util/math.js';
+import { clamp, rotateTowards } from '../util/math.js';
+
+let _corrX = null;
+let _corrY = null;
+let _corrN = null;
+
+function ensureScratch(capacity) {
+  if (_corrX && _corrX.length >= capacity) return;
+  _corrX = new Float32Array(capacity);
+  _corrY = new Float32Array(capacity);
+  _corrN = new Uint16Array(capacity);
+}
 
 export function updatePhysics(state, spatial, dt) {
   const count = state.count;
+  ensureScratch(state.capacity);
+
   // Integrate desired movement into velocity
   for (let i = 0; i < count; i++) {
     if (!state.alive[i]) continue;
     const cfg = state.configOf(i);
 
-    // Turning
     const maxTurn = cfg.turnSpeed * dt;
     state.facing[i] = rotateTowards(state.facing[i], state.desiredFacing[i], maxTurn);
 
-    // Movement: desired moveX/moveY are direction/intention (-1..1), scaled by speed
     let mx = state.moveX[i];
     let my = state.moveY[i];
     const ml = Math.sqrt(mx * mx + my * my);
     if (ml > 1) { mx /= ml; my /= ml; }
 
-    // During windup/active attack, reduce locomotion
     const phase = state.actionPhase[i];
     let moveScale = 1;
     if (phase === ACTION_PHASE_WINDUP) moveScale = 0.25;
@@ -31,24 +41,26 @@ export function updatePhysics(state, spatial, dt) {
     state.vx[i] += ax;
     state.vy[i] += ay;
 
-    // Passive damping
-    const damp = Math.exp(-2.5 * dt);
     if (ml < 0.01 && phase === 0) {
-      state.vx[i] *= Math.exp(-6 * dt);
-      state.vy[i] *= Math.exp(-6 * dt);
+      const damp = Math.exp(-6 * dt);
+      state.vx[i] *= damp;
+      state.vy[i] *= damp;
     } else {
+      const damp = Math.exp(-2.5 * dt);
       state.vx[i] *= damp;
       state.vy[i] *= damp;
     }
   }
 
-  // Soft separation/compression using spatial hash
-  spatial.rebuild(state);
+  // Soft separation/compression using spatial hash (already rebuilt for this tick)
   const neighbors = [];
   const sepDist = SOLDIER_DIAMETER;
-  const sepDistSq = sepDist * sepDist;
-  const softExtra = SOLDIER_RADIUS * 1.4; // allow squeeze
+  const softExtra = SOLDIER_RADIUS * 1.4;
   const maxDist = sepDist + softExtra;
+
+  _corrX.fill(0, 0, count);
+  _corrY.fill(0, 0, count);
+  _corrN.fill(0, 0, count);
 
   for (let i = 0; i < count; i++) {
     if (!state.alive[i]) continue;
@@ -61,27 +73,27 @@ export function updatePhysics(state, spatial, dt) {
       let dy = state.y[j] - state.y[i];
       let d2 = dx * dx + dy * dy;
       if (d2 > maxDist * maxDist) continue;
-      if (d2 < 1e-6) { dx = (Math.random() - 0.5) * 0.1; dy = (Math.random() - 0.5) * 0.1; d2 = dx * dx + dy * dy; }
+      if (d2 < 1e-6) {
+        const h = (((i + 1) * 73856093) ^ ((j + 1) * 19349663)) >>> 0;
+        const a = (h / 4294967296) * Math.PI * 2;
+        dx = Math.cos(a) * 0.1; dy = Math.sin(a) * 0.1;
+        d2 = dx * dx + dy * dy;
+      }
       const d = Math.sqrt(d2);
       const nx = dx / d;
       const ny = dy / d;
       const overlap = sepDist - d;
 
       if (overlap > 0) {
-        // Soft repulsion: stronger as they compress, but not infinite.
         const compress = clamp(overlap / sepDist, 0, 1);
-        // Allow squeezing: displacement correction is softened, velocity resistance increases
         const push = overlap * 0.35 * (0.35 + 0.65 * (1 - compress * 0.5));
-        state.x[i] -= nx * push;
-        state.y[i] -= ny * push;
-        state.x[j] += nx * push;
-        state.y[j] += ny * push;
+        _corrX[i] -= nx * push; _corrY[i] -= ny * push; _corrN[i]++;
+        _corrX[j] += nx * push; _corrY[j] += ny * push; _corrN[j]++;
 
-        // Dampen relative velocity along normal to simulate crowd resistance
+        // Dampen relative velocity along normal only (preserve tangential sliding)
         const rvx = state.vx[j] - state.vx[i];
         const rvy = state.vy[j] - state.vy[i];
         const relNormal = rvx * nx + rvy * ny;
-        const resistance = 8 * compress + 2;
         if (relNormal < 0) {
           const impulse = -relNormal * 0.45;
           state.vx[i] -= nx * impulse;
@@ -89,12 +101,16 @@ export function updatePhysics(state, spatial, dt) {
           state.vx[j] += nx * impulse;
           state.vy[j] += ny * impulse;
         }
-        // Extra drag in dense crowd
-        const drag = Math.exp(-resistance * dt);
-        state.vx[i] *= drag; state.vy[i] *= drag;
-        state.vx[j] *= drag; state.vy[j] *= drag;
+        // Extra normal resistance in dense crowd, applied along normal only
+        const resistance = 8 * compress + 2;
+        const normalDrag = Math.exp(-resistance * dt);
+        const viN = state.vx[i] * nx + state.vy[i] * ny;
+        const vjN = state.vx[j] * nx + state.vy[j] * ny;
+        state.vx[i] += nx * (viN * normalDrag - viN);
+        state.vy[i] += ny * (viN * normalDrag - viN);
+        state.vx[j] += nx * (vjN * normalDrag - vjN);
+        state.vy[j] += ny * (vjN * normalDrag - vjN);
       } else {
-        // Mild separation to avoid touching
         const gap = d - sepDist;
         if (gap < softExtra) {
           const t = 1 - gap / softExtra;
@@ -108,10 +124,30 @@ export function updatePhysics(state, spatial, dt) {
     }
   }
 
+  // Apply accumulated position corrections (reduces iteration-order dependence)
+  for (let i = 0; i < count; i++) {
+    if (!state.alive[i]) continue;
+    const n = _corrN[i];
+    if (n > 0) {
+      // Clamp total correction to avoid explosions in very dense piles
+      const cx = _corrX[i];
+      const cy = _corrY[i];
+      const cl = Math.sqrt(cx * cx + cy * cy);
+      const maxC = SOLDIER_RADIUS * 1.5;
+      if (cl > maxC) {
+        const s = maxC / cl;
+        state.x[i] += cx * s;
+        state.y[i] += cy * s;
+      } else {
+        state.x[i] += cx;
+        state.y[i] += cy;
+      }
+    }
+  }
+
   // Integrate positions
   for (let i = 0; i < count; i++) {
     if (!state.alive[i]) continue;
-    // Speed cap (allow some displacement burst but clamp)
     const sp = Math.sqrt(state.vx[i] * state.vx[i] + state.vy[i] * state.vy[i]);
     const maxSp = state.configOf(i).speed * 2.2;
     if (sp > maxSp) { const s = maxSp / sp; state.vx[i] *= s; state.vy[i] *= s; }

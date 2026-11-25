@@ -5,6 +5,8 @@ import {
 import { getAction } from './actions.js';
 import { angleDiff, distSq, normalize } from '../util/math.js';
 
+const _combatNeighbors = [];
+
 export function tryStartAction(state, i, actionId, targetId = -1) {
   if (state.actionPhase[i] !== ACTION_PHASE_IDLE) return false;
   const cfg = state.configOf(i);
@@ -50,7 +52,7 @@ function isInArc(state, attacker, target, action) {
 function isBlocked(state, defender, attacker, incomingAngle) {
   // Active block defends within its arc relative to defender facing/action dir
   if (state.actionId[defender] !== ACTION_BLOCK) return false;
-  if (state.actionPhase[defender] !== ACTION_PHASE_ACTIVE && state.actionPhase[defender] !== ACTION_PHASE_WINDUP) return false;
+  if (state.actionPhase[defender] !== ACTION_PHASE_ACTIVE) return false;
   const cfg = state.configOf(defender);
   const block = getAction(cfg, ACTION_BLOCK);
   if (!block) return false;
@@ -100,7 +102,7 @@ function applyHit(state, attacker, target, action) {
   }
 }
 
-export function updateCombat(state, dt) {
+export function updateCombat(state, spatial, dt) {
   for (let i = 0; i < state.count; i++) {
     if (!state.alive[i]) continue;
     const cfg = state.configOf(i);
@@ -130,17 +132,28 @@ export function updateCombat(state, dt) {
       }
 
       if (!action.defensive && !state.actionDidHit[i]) {
-        // apply to primary target if valid, else any enemy in arc
+        // apply to primary target if valid, else nearest eligible enemy in arc
         const tid = state.actionTargetId[i];
         if (tid >= 0 && tid < state.count && state.alive[tid] && state.team[tid] !== state.team[i] && isInArc(state, i, tid, action)) {
           applyHit(state, i, tid, action);
           state.actionDidHit[i] = 1;
         } else {
-          // fallback: first enemy in arc
-          for (let j = 0; j < state.count; j++) {
+          const reach = action.reach + 12;
+          const neighbors = _combatNeighbors;
+          neighbors.length = 0;
+          spatial.queryRadius(state.x[i], state.y[i], reach, neighbors);
+          let best = -1;
+          let bestD2 = Infinity;
+          for (let n = 0; n < neighbors.length; n++) {
+            const j = neighbors[n];
             if (i === j || !state.alive[j] || state.team[j] === state.team[i]) continue;
-            if (isInArc(state, i, j, action)) { applyHit(state, i, j, action); state.actionDidHit[i] = 1; break; }
+            if (!isInArc(state, i, j, action)) continue;
+            const dx = state.x[j] - state.x[i];
+            const dy = state.y[j] - state.y[i];
+            const d2 = dx * dx + dy * dy;
+            if (d2 < bestD2) { bestD2 = d2; best = j; }
           }
+          if (best >= 0) { applyHit(state, i, best, action); state.actionDidHit[i] = 1; }
         }
       }
 

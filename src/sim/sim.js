@@ -1,4 +1,4 @@
-import { FIXED_DT, PHASE_DEPLOYMENT, PHASE_ENDED, PHASE_RUNNING, TEAM_RED, TEAM_BLUE } from './constants.js';
+import { FIXED_DT, MAX_FRAME_DT, MAX_STEPS_PER_FRAME, PHASE_DEPLOYMENT, PHASE_ENDED, PHASE_RUNNING, TEAM_RED, TEAM_BLUE } from './constants.js';
 import { SpatialHash } from './spatial.js';
 import { updateAI } from './ai.js';
 import { updateCombat } from './combat.js';
@@ -11,6 +11,7 @@ export class Simulation {
     this.accumulator = 0;
     this.paused = false;
     this.lastSteps = 0;
+    this.discardedTime = 0;
   }
 
   togglePause() {
@@ -50,7 +51,7 @@ export class Simulation {
       s.actionId[i] = 0; s.actionPhase[i] = 0; s.actionTimer[i] = 0;
       s.actionTargetId[i] = -1; s.actionDidHit[i] = 0;
       s.hitFlash[i] = 0;
-      s.reactionTimer[i] = Math.random() * cfg.reactionInterval;
+      s.reactionTimer[i] = ((i * 0.6180339887498949) % 1) * cfg.reactionInterval;
       s.desiredFacing[i] = s.facing[i];
     }
   }
@@ -75,7 +76,7 @@ export class Simulation {
 
     this.spatial.rebuild(s);
     updateAI(s, this.spatial, dt);
-    updateCombat(s, dt);
+    updateCombat(s, this.spatial, dt);
     updatePhysics(s, this.spatial, dt);
     for (let i = 0; i < s.count; i++) {
       if (s.hitFlash[i] > 0) s.hitFlash[i] = Math.max(0, s.hitFlash[i] - dt * 5);
@@ -98,15 +99,18 @@ export class Simulation {
 
   update(frameDt) {
     if (this.state.phase !== PHASE_RUNNING || this.paused) { this.lastSteps = 0; return 0; }
-    this.accumulator += Math.min(frameDt, 0.1);
+    this.accumulator += Math.min(frameDt, MAX_FRAME_DT);
     let steps = 0;
-    while (this.accumulator >= FIXED_DT && steps < 6) {
+    while (this.accumulator >= FIXED_DT && steps < MAX_STEPS_PER_FRAME) {
       this.step(FIXED_DT);
       this.accumulator -= FIXED_DT;
       steps++;
       if (this.state.phase === PHASE_ENDED) break;
     }
-    if (steps === 6) this.accumulator = 0; // avoid spiral
+    if (steps === MAX_STEPS_PER_FRAME && this.accumulator > 0) {
+      this.discardedTime += this.accumulator;
+      this.accumulator = 0; // avoid spiral
+    }
     this.lastSteps = steps;
     return steps;
   }

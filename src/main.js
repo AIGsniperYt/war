@@ -4,6 +4,7 @@ import { createUI } from './ui/ui.js';
 import { WorldState } from './sim/state.js';
 import { Simulation } from './sim/sim.js';
 import { PHASE_DEPLOYMENT, TEAM_RED } from './sim/constants.js';
+import { COMMIT_HASH } from './version.js';
 
 const canvas = document.getElementById('battlefield');
 const uiRoot = document.getElementById('ui');
@@ -13,7 +14,6 @@ const renderer = new Renderer(canvas, camera);
 const world = new WorldState();
 const sim = new Simulation(world);
 
-const COMMIT_HASH = '06ba8bb';
 let debug = false;
 let selectedId = -1;
 let hoverId = -1;
@@ -240,6 +240,7 @@ function logBenchmark() {
     `frameMs: ${(perf.frameMs || 0).toFixed(2)}`,
     `simMsPerFrame: ${(perf.avgSimMs || 0).toFixed(2)}`,
     `stepsPerFrame: ${perf.steps || 0}`,
+    `discardedSimTime: ${(sim.discardedTime || 0).toFixed(3)}s`,
     '=====================',
   ];
   const text = lines.join('\n');

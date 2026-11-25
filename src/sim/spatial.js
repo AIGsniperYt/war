@@ -5,16 +5,20 @@ export class SpatialHash {
     this.cellSize = cellSize;
     this.invCell = 1 / cellSize;
     this.map = new Map();
+    this._usedKeys = [];
     this._queryStamp = 1;
     this._stamps = null;
   }
 
   clear() {
-    this.map.clear();
+    for (let i = 0; i < this._usedKeys.length; i++) {
+      const arr = this.map.get(this._usedKeys[i]);
+      if (arr) arr.length = 0;
+    }
+    this._usedKeys.length = 0;
   }
 
   _key(cx, cy) {
-    // numeric hash for integer cell coords
     return ((cx * 73856093) ^ (cy * 19349663)) >>> 0;
   }
 
@@ -23,7 +27,11 @@ export class SpatialHash {
     const cy = Math.floor(y * this.invCell);
     const k = this._key(cx, cy);
     let arr = this.map.get(k);
-    if (!arr) { arr = []; this.map.set(k, arr); }
+    if (!arr) {
+      arr = [];
+      this.map.set(k, arr);
+    }
+    if (arr.length === 0) this._usedKeys.push(k);
     arr.push(id);
   }
 
@@ -46,7 +54,7 @@ export class SpatialHash {
     for (let cy = minCy; cy <= maxCy; cy++) {
       for (let cx = minCx; cx <= maxCx; cx++) {
         const arr = this.map.get(this._key(cx, cy));
-        if (!arr) continue;
+        if (!arr || arr.length === 0) continue;
         for (let j = 0; j < arr.length; j++) {
           const id = arr[j];
           if (id >= this._stamps.length) {

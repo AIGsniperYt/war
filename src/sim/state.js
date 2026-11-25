@@ -71,7 +71,7 @@ export class WorldState {
     this.alive[i] = 1;
     this.hp[i] = c.hp;
     this.stamina[i] = c.stamina;
-    this.reactionTimer[i] = Math.random() * c.reactionInterval;
+    this.reactionTimer[i] = ((i * 0.6180339887498949) % 1) * c.reactionInterval;
     this.targetId[i] = -1;
     this.targetCommit[i] = 0;
     this.actionId[i] = ACTION_NONE;

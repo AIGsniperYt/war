@@ -3,7 +3,11 @@ import { WorldState } from '../src/sim/state.js';
 import { Simulation } from '../src/sim/sim.js';
 
 function getCommit() {
-  try { return execSync('git rev-parse --short HEAD', { encoding: 'utf8' }).trim(); }
+  try {
+    const hash = execSync('git rev-parse --short HEAD', { encoding: 'utf8' }).trim();
+    const dirty = execSync('git status --porcelain', { encoding: 'utf8' }).trim().length > 0;
+    return dirty ? `${hash}-dirty` : hash;
+  }
   catch { return 'unknown'; }
 }
 
