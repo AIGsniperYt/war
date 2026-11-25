@@ -57,6 +57,10 @@ export function createUI(root, callbacks) {
     const t = e.target;
     if (t && t.dataset && t.dataset.inspect) {
       state.inspect[t.dataset.inspect] = !!t.checked;
+      if (t.dataset.inspect === 'details') {
+        const d = inspector.querySelector('#insp-details');
+        if (d) d.style.display = t.checked ? 'block' : 'none';
+      }
     }
   });
 
@@ -65,7 +69,7 @@ export function createUI(root, callbacks) {
     brush: 1,
     mode: 'place',
     debug: false,
-    inspect: { target: true, move: true, fov: false, action: true },
+    inspect: { target: true, move: true, fov: false, action: true, details: false },
   };
 
   function setActive(row, attr, value) {
@@ -178,12 +182,7 @@ export function createUI(root, callbacks) {
         </div>
 
         <div class="insp-section">
-          <div class="insp-kv"><span>Position</span><strong id="insp-pos"></strong></div>
           <div class="insp-kv"><span>Speed</span><strong id="insp-speed"></strong></div>
-          <div class="insp-kv"><span>Facing</span><strong id="insp-facing"></strong></div>
-        </div>
-
-        <div class="insp-section">
           <div class="insp-kv"><span>Target</span><strong id="insp-target"></strong></div>
           <div class="insp-kv"><span>Action</span><strong id="insp-action"></strong></div>
           <div class="insp-kv"><span>Reaction</span><strong id="insp-reaction"></strong></div>
@@ -195,6 +194,20 @@ export function createUI(root, callbacks) {
           <label class="toggle"><input type="checkbox" data-inspect="move" ${state.inspect.move ? 'checked' : ''}><span>Move intent</span></label>
           <label class="toggle"><input type="checkbox" data-inspect="fov" ${state.inspect.fov ? 'checked' : ''}><span>FOV cone</span></label>
           <label class="toggle"><input type="checkbox" data-inspect="action" ${state.inspect.action ? 'checked' : ''}><span>Action arc highlight</span></label>
+        </div>
+
+        <div class="insp-section">
+          <label class="toggle"><input type="checkbox" data-inspect="details" ${state.inspect.details ? 'checked' : ''}><span>Show detailed stats</span></label>
+          <div id="insp-details" style="display:${state.inspect.details ? 'block' : 'none'}; margin-top:8px;">
+            <div class="insp-kv"><span>Position</span><strong id="insp-pos"></strong></div>
+            <div class="insp-kv"><span>Velocity</span><strong id="insp-vel"></strong></div>
+            <div class="insp-kv"><span>Facing</span><strong id="insp-facing"></strong></div>
+            <div class="insp-kv"><span>Move intent</span><strong id="insp-move"></strong></div>
+            <div class="insp-kv"><span>Target commit</span><strong id="insp-commit"></strong></div>
+            <div class="insp-kv"><span>Action timer</span><strong id="insp-atimer"></strong></div>
+            <div class="insp-kv"><span>Action target</span><strong id="insp-atarget"></strong></div>
+            <div class="insp-kv"><span>Hit flash</span><strong id="insp-flash"></strong></div>
+          </div>
         </div>
 
         <div class="insp-section" style="margin-bottom:0">
@@ -225,12 +238,19 @@ export function createUI(root, callbacks) {
       set('#insp-dead', st.alive[id] ? '' : '(dead)');
       set('#insp-hp-text', `${fmt(st.hp[id],1)} / ${fmt(cfg.hp,0)}`);
       set('#insp-sta-text', `${fmt(st.stamina[id],1)} / ${fmt(cfg.stamina,0)}`);
+      set('#insp-speed', `${fmt(speed,1)} (max ${fmt(cfg.speed,0)})`);
+      set('#insp-target', target >= 0 ? `#${target}` : 'none');
+      set('#insp-action', `${action ? action.name : 'None'} · ${phaseName(st.actionPhase[id])}`);
+      set('#insp-reaction', `${fmt(st.reactionTimer[id],2)}s / ${fmt(cfg.reactionInterval,2)}s`);
+      // Detailed stats
       set('#insp-pos', `${fmt(st.x[id],1)}, ${fmt(st.y[id],1)}`);
-      set('#insp-speed', `${fmt(speed,1)} / ${fmt(cfg.speed,0)}`);
+      set('#insp-vel', `${fmt(st.vx[id],1)}, ${fmt(st.vy[id],1)}`);
       set('#insp-facing', `${fmt(st.facing[id],2)} rad`);
-      set('#insp-target', target >= 0 ? `#${target} (${fmt(st.targetCommit[id],1)}s commit)` : 'none');
-      set('#insp-action', `${action ? action.name : 'None'} · ${phaseName(st.actionPhase[id])} ${fmt(st.actionTimer[id],2)}s`);
-      set('#insp-reaction', `${fmt(st.reactionTimer[id],2)}s`);
+      set('#insp-move', `${fmt(st.moveX[id],2)}, ${fmt(st.moveY[id],2)}`);
+      set('#insp-commit', `${fmt(st.targetCommit[id],2)}s`);
+      set('#insp-atimer', `${fmt(st.actionTimer[id],2)}s`);
+      set('#insp-atarget', st.actionTargetId[id] >= 0 ? `#${st.actionTargetId[id]}` : 'none');
+      set('#insp-flash', `${fmt(st.hitFlash[id],2)}`);
       const hpBar = inspector.querySelector('#insp-hp-bar');
       const staBar = inspector.querySelector('#insp-sta-bar');
       if (hpBar) hpBar.style.width = `${hpPct * 100}%`;
