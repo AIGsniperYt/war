@@ -16,6 +16,36 @@ const sim = new Simulation(world);
 let debug = false;
 let selectedId = -1;
 let hoverId = -1;
+
+function loadPreset(name) {
+  sim.clearAll();
+  selectedId = -1;
+  hoverId = -1;
+
+  const makeFrontline = (countPerSide, cols, spacing, gap) => {
+    const rows = Math.ceil(countPerSide / cols);
+    const halfW = (cols - 1) * spacing * 0.5;
+    const halfD = (rows - 1) * spacing * 0.5;
+    for (let i = 0; i < countPerSide; i++) {
+      const r = Math.floor(i / cols);
+      const c = i % cols;
+      const x = c * spacing - halfW;
+      const y = r * spacing - halfD;
+      world.addSoldier(x - gap / 2 - halfD, y, 0, 0, 0); // red on left, facing right
+      world.addSoldier(x + gap / 2 + halfD, y, 1, Math.PI, 0); // blue on right, facing left
+    }
+  };
+
+  if (name === 'frontline-500') makeFrontline(500, 50, 14, 220);
+  else if (name === 'frontline-200') makeFrontline(200, 40, 14, 180);
+  else if (name === 'skirmish-100') makeFrontline(100, 25, 14, 140);
+  else makeFrontline(200, 40, 14, 180);
+
+  camera.x = 0;
+  camera.y = 0;
+  camera.zoom = name === 'frontline-500' ? 0.55 : name === 'frontline-200' ? 0.75 : 0.9;
+}
+
 const ui = createUI(uiRoot, {
   onStart() {
     if (world.phase === PHASE_DEPLOYMENT) sim.startBattle();
@@ -34,6 +64,7 @@ const ui = createUI(uiRoot, {
   },
   onDebug(v) { debug = !!v; },
   onClearSelection() { selectedId = -1; },
+  onLoadPreset(name) { loadPreset(name); },
 });
 
 let mouse = { x: 0, y: 0, world: { x: 0, y: 0 }, down: false, button: 0 };

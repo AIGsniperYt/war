@@ -4,41 +4,57 @@ import { getAction } from '../sim/actions.js';
 export function createUI(root, callbacks) {
   root.innerHTML = `
     <div class="panel">
-      <div class="title">WAR</div>
-      <div class="label">Team</div>
-      <div class="row" id="team-row">
-        <button data-team="red" class="red active">Red</button>
-        <button data-team="blue" class="blue">Blue</button>
+      <div class="title">WAR SANDBOX</div>
+      <div class="tabs" id="tabs">
+        <button data-tab="controls" class="active">Controls</button>
+        <button data-tab="battles">Battles</button>
       </div>
-      <div class="label">Brush</div>
-      <div class="row" id="brush-row">
-        <button data-brush="1" class="active">1x1</button>
-        <button data-brush="4">2x2</button>
-        <button data-brush="9">3x3</button>
-        <button data-brush="16">4x4</button>
+
+      <div id="tab-controls">
+        <div class="label">Team</div>
+        <div class="row" id="team-row">
+          <button data-team="red" class="red active">Red</button>
+          <button data-team="blue" class="blue">Blue</button>
+        </div>
+        <div class="label">Brush</div>
+        <div class="row" id="brush-row">
+          <button data-brush="1" class="active">1x1</button>
+          <button data-brush="4">2x2</button>
+          <button data-brush="9">3x3</button>
+          <button data-brush="16">4x4</button>
+        </div>
+        <div class="label">Mode</div>
+        <div class="row" id="mode-row">
+          <button data-mode="place" class="active">Place</button>
+          <button data-mode="remove">Remove</button>
+        </div>
+        <div class="row">
+          <button id="start-btn" class="primary">Start Battle</button>
+          <button id="pause-btn">Pause</button>
+        </div>
+        <div class="row">
+          <button id="reset-btn">Reset</button>
+          <button id="clear-btn" class="danger">Clear</button>
+          <button id="debug-btn">Debug</button>
+        </div>
+        <div class="stat" id="stats"></div>
+        <div class="insp-section" style="padding:10px 0 0 0; margin-top:2px;">
+          <div class="label" style="margin-bottom:6px">Performance</div>
+          <div class="stat" id="perf"></div>
+        </div>
+        <div class="help">
+          Deploy: LMB place/remove. Sim: LMB inspect unit.<br>
+          RMB/MMB drag: pan. Wheel: zoom. Debug shows FOV, targets, and arcs.
+        </div>
       </div>
-      <div class="label">Mode</div>
-      <div class="row" id="mode-row">
-        <button data-mode="place" class="active">Place</button>
-        <button data-mode="remove">Remove</button>
-      </div>
-      <div class="row">
-        <button id="start-btn" class="primary">Start Battle</button>
-        <button id="pause-btn">Pause</button>
-      </div>
-      <div class="row">
-        <button id="reset-btn">Reset</button>
-        <button id="clear-btn" class="danger">Clear</button>
-        <button id="debug-btn">Debug</button>
-      </div>
-      <div class="stat" id="stats"></div>
-      <div class="insp-section" style="padding:10px 0 0 0; margin-top:2px;">
-        <div class="label" style="margin-bottom:6px">Performance</div>
-        <div class="stat" id="perf"></div>
-      </div>
-      <div class="help">
-        Deploy: LMB place/remove. Sim: LMB inspect unit.<br>
-        RMB/MMB drag: pan. Wheel: zoom. Debug shows FOV, targets, and arcs.
+
+      <div id="tab-battles" style="display:none">
+        <div class="label">Presets</div>
+        <div class="stat" style="margin-bottom:10px;">Load a preset deployment for quick testing and benchmarking.</div>
+        <div class="row"><button data-preset="frontline-500">Frontline 500v500</button></div>
+        <div class="row"><button data-preset="frontline-200">Frontline 200v200</button></div>
+        <div class="row"><button data-preset="skirmish-100">Skirmish 100v100</button></div>
+        <div class="help">Presets replace the current deployment and reset battle state.</div>
       </div>
     </div>
     <div class="banner" id="banner"></div>
@@ -57,7 +73,25 @@ export function createUI(root, callbacks) {
   const perfEl = root.querySelector('#perf');
   const banner = root.querySelector('#banner');
   const inspector = root.querySelector('#inspector');
+  const tabs = root.querySelector('#tabs');
+  const tabControls = root.querySelector('#tab-controls');
+  const tabBattles = root.querySelector('#tab-battles');
   let lastInspectorId = -2;
+
+  tabs.addEventListener('click', e => {
+    const btn = e.target.closest('button[data-tab]');
+    if (!btn) return;
+    const tab = btn.dataset.tab;
+    tabs.querySelectorAll('button').forEach(b => b.classList.toggle('active', b === btn));
+    tabControls.style.display = tab === 'controls' ? 'block' : 'none';
+    tabBattles.style.display = tab === 'battles' ? 'block' : 'none';
+  });
+
+  tabBattles.addEventListener('click', e => {
+    const btn = e.target.closest('button[data-preset]');
+    if (!btn) return;
+    callbacks.onLoadPreset?.(btn.dataset.preset);
+  });
   inspector.addEventListener('change', e => {
     const t = e.target;
     if (t && t.dataset && t.dataset.inspect) {

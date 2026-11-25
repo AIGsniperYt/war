@@ -92,3 +92,5 @@ button.danger { color: #ffb3b3; }
 .toggle { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); margin-bottom: 6px; cursor: pointer; }
 .toggle input { accent-color: #8fb7ff; }
 .toggle:last-child { margin-bottom: 0; }
+.tabs { display: flex; gap: 8px; margin-bottom: 12px; }
+.tabs button { flex: 1; }
