@@ -7,51 +7,11 @@
 From `war/`:
 
 ```bash
-node --input-type=module -e "<script>"
+npm run bench:headless
+# or: node scripts/benchmark-headless.js
 ```
 
-Or use the snippet below (adjust scenario as needed). Record the commit hash and paste results into a new entry.
-
-### Standard scenario snippet
-
-```js
-import { WorldState } from './src/sim/state.js';
-import { Simulation } from './src/sim/sim.js';
-
-function makeFrontline(countPerSide, cols, spacing, gap) {
-  const w = new WorldState();
-  const sim = new Simulation(w);
-  const rows = Math.ceil(countPerSide / cols);
-  const halfY = (cols - 1) * spacing * 0.5;
-  for (let i = 0; i < countPerSide; i++) {
-    const r = Math.floor(i / cols);
-    const c = i % cols;
-    const y = c * spacing - halfY;
-    w.addSoldier(-gap/2 - r*spacing, y, 0, 0, 0);
-    w.addSoldier(gap/2 + r*spacing, y, 1, Math.PI, 0);
-  }
-  sim.startBattle();
-  for (let i = 0; i < 120; i++) sim.step(1/60); // 2s warmup
-  const steps = 300; // 5s measured
-  const t0 = performance.now();
-  for (let i = 0; i < steps; i++) sim.step(1/60);
-  const total = performance.now() - t0;
-  const s = w.stats();
-  console.log(JSON.stringify({
-    scenario: `frontline-${countPerSide}v${countPerSide}`,
-    totalSoldiers: w.count,
-    alive: s.redAlive + s.blueAlive,
-    steps,
-    totalMs: +total.toFixed(2),
-    msPerStep: +(total / steps).toFixed(3),
-    stepsPerSec: +(1000 / (total / steps)).toFixed(1),
-  }));
-}
-
-makeFrontline(100, 25, 14, 140);
-makeFrontline(200, 40, 14, 180);
-makeFrontline(500, 50, 14, 220);
-```
+The benchmark suite lives in `scripts/benchmark-headless.js`. Add scenarios there when needed; keep this doc for recorded results and comparisons.
 
 ## Recording format
 
