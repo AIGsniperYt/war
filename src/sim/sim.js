@@ -9,6 +9,17 @@ export class Simulation {
     this.state = state;
     this.spatial = new SpatialHash();
     this.accumulator = 0;
+    this.paused = false;
+  }
+
+  togglePause() {
+    if (this.state.phase !== PHASE_RUNNING) return false;
+    this.paused = !this.paused;
+    return this.paused;
+  }
+
+  setPaused(v) {
+    this.paused = !!v;
   }
 
   startBattle() {
@@ -24,6 +35,7 @@ export class Simulation {
     s.killsRed = 0;
     s.killsBlue = 0;
     this.accumulator = 0;
+    this.paused = false;
     // reset dynamic state for soldiers
     for (let i = 0; i < s.count; i++) {
       const cfg = s.configOf(i);
@@ -36,6 +48,7 @@ export class Simulation {
       s.targetCommit[i] = 0;
       s.actionId[i] = 0; s.actionPhase[i] = 0; s.actionTimer[i] = 0;
       s.actionTargetId[i] = -1; s.actionDidHit[i] = 0;
+      s.hitFlash[i] = 0;
       s.reactionTimer[i] = Math.random() * cfg.reactionInterval;
       s.desiredFacing[i] = s.facing[i];
     }
@@ -44,11 +57,13 @@ export class Simulation {
   resetToDeployment() {
     this.state.restoreDeployment();
     this.accumulator = 0;
+    this.paused = false;
   }
 
   clearAll() {
     this.state.clearAll();
     this.accumulator = 0;
+    this.paused = false;
   }
 
   step(dt) {
@@ -61,6 +76,9 @@ export class Simulation {
     updateAI(s, this.spatial, dt);
     updateCombat(s, dt);
     updatePhysics(s, this.spatial, dt);
+    for (let i = 0; i < s.count; i++) {
+      if (s.hitFlash[i] > 0) s.hitFlash[i] = Math.max(0, s.hitFlash[i] - dt * 5);
+    }
     this.checkWinner();
   }
 
@@ -78,7 +96,7 @@ export class Simulation {
   }
 
   update(frameDt) {
-    if (this.state.phase !== PHASE_RUNNING) return;
+    if (this.state.phase !== PHASE_RUNNING || this.paused) return;
     this.accumulator += Math.min(frameDt, 0.1);
     let steps = 0;
     while (this.accumulator >= FIXED_DT && steps < 6) {

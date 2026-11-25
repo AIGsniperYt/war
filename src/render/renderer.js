@@ -1,4 +1,8 @@
-import { TEAM_RED } from '../sim/constants.js';
+import {
+  TEAM_RED, ACTION_PHASE_WINDUP, ACTION_PHASE_ACTIVE, ACTION_PHASE_RECOVERY,
+  ACTION_NONE, ACTION_BLOCK
+} from '../sim/constants.js';
+import { getAction } from '../sim/actions.js';
 
 export class Renderer {
   constructor(canvas, camera) {
@@ -54,12 +58,79 @@ export class Renderer {
     ctx.restore();
   }
 
-  drawSoldiers(state) {
+  drawSoldiers(state, debug = false) {
     const { ctx, camera } = this;
     const w = camera.width, h = camera.height;
     const z = camera.zoom;
     const size = Math.max(3, 5.5 * z);
     ctx.save();
+
+    // Debug pass: FOV and target lines
+    if (debug) {
+      for (let i = 0; i < state.count; i++) {
+        if (!state.alive[i]) continue;
+        const sx = (state.x[i] - camera.x) * z + w / 2;
+        const sy = (state.y[i] - camera.y) * z + h / 2;
+        if (sx < -200 || sy < -200 || sx > w + 200 || sy > h + 200) continue;
+        const cfg = state.configOf(i);
+        const facing = state.facing[i];
+        const range = cfg.perceptionRange * z;
+        const halfFov = cfg.fov * 0.5;
+        const isRed = state.team[i] === TEAM_RED;
+        ctx.strokeStyle = isRed ? 'rgba(255,95,109,0.08)' : 'rgba(93,169,255,0.08)';
+        ctx.fillStyle = isRed ? 'rgba(255,95,109,0.03)' : 'rgba(93,169,255,0.03)';
+        ctx.beginPath();
+        ctx.moveTo(sx, sy);
+        ctx.arc(sx, sy, range, facing - halfFov, facing + halfFov);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        const tid = state.targetId[i];
+        if (tid >= 0 && tid < state.count && state.alive[tid]) {
+          const tx = (state.x[tid] - camera.x) * z + w / 2;
+          const ty = (state.y[tid] - camera.y) * z + h / 2;
+          ctx.strokeStyle = isRed ? 'rgba(255,95,109,0.18)' : 'rgba(93,169,255,0.18)';
+          ctx.lineWidth = 1;
+          ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(tx, ty); ctx.stroke();
+        }
+      }
+    }
+
+    // Action arcs
+    for (let i = 0; i < state.count; i++) {
+      if (!state.alive[i]) continue;
+      const phase = state.actionPhase[i];
+      if (phase !== ACTION_PHASE_WINDUP && phase !== ACTION_PHASE_ACTIVE && phase !== ACTION_PHASE_RECOVERY) continue;
+      const action = getAction(state.configOf(i), state.actionId[i]);
+      if (!action || action.id === ACTION_NONE) continue;
+      const sx = (state.x[i] - camera.x) * z + w / 2;
+      const sy = (state.y[i] - camera.y) * z + h / 2;
+      if (sx < -100 || sy < -100 || sx > w + 100 || sy > h + 100) continue;
+      const dir = Math.atan2(state.actionDirY[i], state.actionDirX[i]);
+      const reach = (action.reach + 6) * z;
+      const halfArc = action.arc * 0.5;
+      const isRed = state.team[i] === TEAM_RED;
+      let alpha = 0.08;
+      if (phase === ACTION_PHASE_WINDUP) alpha = action.defensive ? 0.12 : 0.10;
+      if (phase === ACTION_PHASE_ACTIVE) alpha = action.defensive ? 0.18 : 0.22;
+      if (phase === ACTION_PHASE_RECOVERY) alpha = 0.05;
+      ctx.fillStyle = action.defensive
+        ? (isRed ? `rgba(255,180,180,${alpha})` : `rgba(160,210,255,${alpha})`)
+        : (isRed ? `rgba(255,95,109,${alpha})` : `rgba(93,169,255,${alpha})`);
+      ctx.strokeStyle = action.defensive
+        ? (isRed ? `rgba(255,200,200,${alpha + 0.08})` : `rgba(180,220,255,${alpha + 0.08})`)
+        : (isRed ? `rgba(255,120,130,${alpha + 0.1})` : `rgba(120,180,255,${alpha + 0.1})`);
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(sx, sy);
+      ctx.arc(sx, sy, reach, dir - halfArc, dir + halfArc);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+    }
+
+    // Soldiers
     for (let i = 0; i < state.count; i++) {
       if (!state.alive[i]) continue;
       const wx = state.x[i], wy = state.y[i];
@@ -69,16 +140,14 @@ export class Renderer {
       const f = state.facing[i];
       const cos = Math.cos(f), sin = Math.sin(f);
       const isRed = state.team[i] === TEAM_RED;
-      ctx.fillStyle = isRed ? '#ff5f6d' : '#5da9ff';
-      ctx.strokeStyle = isRed ? 'rgba(255,95,109,0.35)' : 'rgba(93,169,255,0.35)';
-      ctx.lineWidth = Math.max(0.5, 0.8 * z);
+      const flash = state.hitFlash[i] || 0;
+      ctx.fillStyle = flash > 0 ? `rgba(255,255,255,${0.55 + flash * 0.45})` : (isRed ? '#ff5f6d' : '#5da9ff');
       // chevron pointing in facing direction
-      // local points: tip forward, two back wings
       const tipX = sx + cos * size;
       const tipY = sy + sin * size;
       const backX = sx - cos * size * 0.7;
       const backY = sy - sin * size * 0.7;
-      const px = -sin, py = cos; // perpendicular
+      const px = -sin, py = cos;
       const wing = size * 0.75;
       ctx.beginPath();
       ctx.moveTo(tipX, tipY);
@@ -88,6 +157,7 @@ export class Renderer {
       ctx.closePath();
       ctx.fill();
     }
+
     ctx.restore();
   }
 

@@ -78,6 +78,7 @@ function applyHit(state, attacker, target, action) {
 
   if (action.damage > 0) {
     state.hp[target] -= action.damage;
+    state.hitFlash[target] = 1;
     if (state.hp[target] <= 0 && state.alive[target]) {
       state.alive[target] = 0;
       state.hp[target] = 0;

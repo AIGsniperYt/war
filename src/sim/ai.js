@@ -168,6 +168,23 @@ export function updateAI(state, spatial, dt) {
       }
     }
 
+    // Local ally/enemy summary for cohesion/alignment/regrouping
+    let allyCx = 0, allyCy = 0, allyVx = 0, allyVy = 0, allyCount = 0;
+    let nearestAllyDist = Infinity, nearestAllyDx = 0, nearestAllyDy = 0;
+    for (let n = 0; n < neighbors.length; n++) {
+      const j = neighbors[n];
+      if (j === i || !state.alive[j] || state.team[j] !== state.team[i]) continue;
+      const ox = state.x[j] - state.x[i];
+      const oy = state.y[j] - state.y[i];
+      const od = Math.sqrt(ox * ox + oy * oy);
+      if (od > 140) continue;
+      allyCount++;
+      allyCx += ox; allyCy += oy;
+      allyVx += state.vx[j]; allyVy += state.vy[j];
+      if (od < nearestAllyDist) { nearestAllyDist = od; nearestAllyDx = ox; nearestAllyDy = oy; }
+    }
+    if (allyCount > 0) { allyCx /= allyCount; allyCy /= allyCount; allyVx /= allyCount; allyVy /= allyCount; }
+
     // Candidate direction evaluation
     let bestDirX = 0, bestDirY = 0, bestDirScore = -Infinity;
     const curMoveAng = Math.atan2(state.vy[i], state.vx[i]);
@@ -188,8 +205,16 @@ export function updateAI(state, spatial, dt) {
         const faceAlign = Math.cos(angleDiff(state.facing[i], dir.a));
         score += faceAlign * 0.15;
       } else {
-        // no target: mild wander/hold
-        score -= 0.2;
+        // No visible target: regroup with allies, do not desert/wander aimlessly.
+        if (allyCount > 0) {
+          const acd = Math.sqrt(allyCx * allyCx + allyCy * allyCy) + 1e-6;
+          score += (dir.x * (allyCx / acd) + dir.y * (allyCy / acd)) * 0.9;
+          const avd = Math.sqrt(allyVx * allyVx + allyVy * allyVy);
+          if (avd > 2) score += (dir.x * (allyVx / avd) + dir.y * (allyVy / avd)) * 0.45;
+        } else {
+          // isolated, no target: hold/scan slowly instead of wandering off
+          score -= 0.15;
+        }
       }
 
       // continuity
@@ -198,8 +223,6 @@ export function updateAI(state, spatial, dt) {
       }
 
       // local allies/enemies influence
-      let allyPressure = 0;
-      let enemyThreat = 0;
       let congestion = 0;
       for (let n = 0; n < neighbors.length; n++) {
         const j = neighbors[n];
@@ -207,7 +230,7 @@ export function updateAI(state, spatial, dt) {
         const ox = state.x[j] - state.x[i];
         const oy = state.y[j] - state.y[i];
         const od2 = ox * ox + oy * oy;
-        if (od2 > 70 * 70) continue;
+        if (od2 > 90 * 90) continue;
         const od = Math.sqrt(od2) + 1e-6;
         const onx = ox / od, ony = oy / od;
         const toward = dir.x * onx + dir.y * ony; // 1 means moving toward neighbor
@@ -216,35 +239,54 @@ export function updateAI(state, spatial, dt) {
           // ally separation and congestion
           if (od < 18) { congestion += (18 - od) / 18; score -= toward * 1.2 * ((18 - od) / 18); }
           else if (od < 28) { score -= toward * 0.25 * ((28 - od) / 10); }
-          // mild cohesion
-          if (od > 35 && od < 60) score += toward * 0.03;
+          // cohesion: keep formation together, stronger when no target
+          if (od > 30 && od < 85) {
+            const cohesionW = hasTarget ? 0.08 : 0.22;
+            score += toward * cohesionW * clamp((od - 30) / 55, 0, 1);
+          }
+          // alignment with nearby allies
+          const av = Math.sqrt(state.vx[j] * state.vx[j] + state.vy[j] * state.vy[j]);
+          if (av > 2) {
+            const align = dir.x * (state.vx[j] / av) + dir.y * (state.vy[j] / av);
+            score += align * (hasTarget ? 0.08 : 0.16);
+          }
         } else {
-          // enemy: avoid getting too close from bad angle if not targeting; but if targeting allow approach
+          // enemy: avoid getting too close from bad angle if not targeting
           if (j !== tid) {
-            if (od < 20) { enemyThreat += (20 - od) / 20; score -= toward * 0.35 * ((20 - od) / 20); }
+            if (od < 20) { score -= toward * 0.35 * ((20 - od) / 20); }
           }
         }
       }
 
       score -= congestion * 0.4;
 
+      // If isolated from allies, bias back toward nearest ally unless actively engaging
+      if (allyCount > 0 && nearestAllyDist > 55 && !hasTarget) {
+        const nad = nearestAllyDist + 1e-6;
+        score += (dir.x * (nearestAllyDx / nad) + dir.y * (nearestAllyDy / nad)) * 0.7;
+      }
+
       if (score > bestDirScore) { bestDirScore = score; bestDirX = dir.x; bestDirY = dir.y; }
     }
 
-    // If close to target, slow down / orbit slightly instead of ramming
+    // If close to target, slow down instead of ramming
     let moveMag = 1;
     if (hasTarget) {
       if (tdist < 14) moveMag = 0.15;
       else if (tdist < 20) moveMag = 0.45;
       else moveMag = 1;
-      // face target
       state.desiredFacing[i] = Math.atan2(ty, tx);
+    } else if (allyCount > 0) {
+      // No target: stay with the army.
+      const acd = Math.sqrt(allyCx * allyCx + allyCy * allyCy);
+      if (acd > 28) moveMag = 0.85;
+      else if (acd > 14) moveMag = 0.35;
+      else moveMag = 0.1;
+      if (bestDirX !== 0 || bestDirY !== 0) state.desiredFacing[i] = Math.atan2(bestDirY, bestDirX);
     } else {
-      // no target: face movement or keep
-      if (bestDirScore > -Infinity && (bestDirX !== 0 || bestDirY !== 0)) {
-        state.desiredFacing[i] = Math.atan2(bestDirY, bestDirX);
-      }
-      moveMag = bestDirScore > -0.5 ? 0.4 : 0;
+      // Isolated with no target: hold position and scan.
+      moveMag = 0;
+      state.desiredFacing[i] = state.facing[i] + dt * 0.8;
     }
 
     state.moveX[i] = bestDirX * moveMag;

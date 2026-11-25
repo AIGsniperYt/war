@@ -11,3 +11,4 @@
 - **MAJOR: added: soldiers that think for themselves** — once the battle starts, every soldier looks around, picks a target, commits to it, and moves with purpose. They don't just beeline into a pile; they react to allies, congestion, and openings.
 - **MAJOR: added: crowds that push and squeeze** — soldiers have soft physical bodies. They slow down in dense crowds, shove through gaps, and get displaced by heavy hits instead of clipping through each other.
 - **MAJOR: added: directional combat** — soldiers wind up strikes, block from the front, and use displacement moves to barge through or kick enemies back. Battles play out until one side has no one left standing.
+- **changed: clearer battles and tighter armies** — you can pause the fight, the status sits at the top center, hits flash white, attacks show their arcs, and soldiers stick with their army instead of drifting off alone. Debug view can show FOV and target lines when you want to inspect what's happening.

@@ -33,6 +33,7 @@ export class WorldState {
     this.actionDirX = new Float32Array(capacity);
     this.actionDirY = new Float32Array(capacity);
     this.actionDidHit = new Uint8Array(capacity);
+    this.hitFlash = new Float32Array(capacity);
 
     this.cfg = new Uint16Array(capacity);
 
@@ -80,6 +81,7 @@ export class WorldState {
     this.actionDirX[i] = Math.cos(f);
     this.actionDirY[i] = Math.sin(f);
     this.actionDidHit[i] = 0;
+    this.hitFlash[i] = 0;
     this.cfg[i] = configIndex;
     return i;
   }
@@ -104,6 +106,7 @@ export class WorldState {
     this.actionTimer[dst] = this.actionTimer[src]; this.actionTargetId[dst] = this.actionTargetId[src];
     this.actionDirX[dst] = this.actionDirX[src]; this.actionDirY[dst] = this.actionDirY[src];
     this.actionDidHit[dst] = this.actionDidHit[src];
+    this.hitFlash[dst] = this.hitFlash[src];
     this.cfg[dst] = this.cfg[src];
   }
 

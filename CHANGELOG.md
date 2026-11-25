@@ -24,3 +24,9 @@
 - **Action system** — data-driven action defs with reach, arc, windup, active, recovery, damage, displacement, attacker advance, stamina cost.
 - **Baseline actions** — Strike, Block, Barge, Kick (Barge/Kick share displacement action family with different physical parameters).
 - **Resolution** — deterministic arc+reach checks, directional block defense, health/death, battle termination, basic results.
+
+### Post-scaffold polish (2026-11-25)
+- **Pause/resume** — simulation can be paused/resumed during battle; accumulator freezes while paused.
+- **UI layout** — controls moved to top-right; centered status banner replaces the top-right phase pill. Banner reflects deployment/running/paused/ended states.
+- **Battle readability** — hit flashes on damage, action arc indicators for windup/active/recovery, optional debug overlay (FOV cones + target lines).
+- **Cohesion/alignment fix** — stronger ally cohesion and alignment, regrouping when no target is visible, isolated units scan instead of wandering off. Reduces "deserting" behavior.

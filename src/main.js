@@ -13,10 +13,14 @@ const renderer = new Renderer(canvas, camera);
 const world = new WorldState();
 const sim = new Simulation(world);
 
+let debug = false;
 const ui = createUI(uiRoot, {
   onStart() {
     if (world.phase === PHASE_DEPLOYMENT) sim.startBattle();
     else if (world.phase === 'ended') sim.startBattle();
+  },
+  onPause() {
+    sim.togglePause();
   },
   onReset() {
     sim.resetToDeployment();
@@ -24,6 +28,7 @@ const ui = createUI(uiRoot, {
   onClear() {
     sim.clearAll();
   },
+  onDebug(v) { debug = !!v; },
 });
 
 let mouse = { x: 0, y: 0, world: { x: 0, y: 0 }, down: false, button: 0 };
@@ -159,9 +164,9 @@ function frame(now) {
 
   renderer.clear();
   renderer.drawGrid();
-  renderer.drawSoldiers(world);
+  renderer.drawSoldiers(world, debug);
   renderer.drawBrushPreview(mouse.world, ui.state.brush, ui.state.team, world.phase);
-  ui.update(world);
+  ui.update(world, sim);
 
   requestAnimationFrame(frame);
 }
