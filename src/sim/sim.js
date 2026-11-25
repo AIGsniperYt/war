@@ -10,6 +10,7 @@ export class Simulation {
     this.spatial = new SpatialHash();
     this.accumulator = 0;
     this.paused = false;
+    this.lastSteps = 0;
   }
 
   togglePause() {
@@ -96,7 +97,7 @@ export class Simulation {
   }
 
   update(frameDt) {
-    if (this.state.phase !== PHASE_RUNNING || this.paused) return;
+    if (this.state.phase !== PHASE_RUNNING || this.paused) { this.lastSteps = 0; return 0; }
     this.accumulator += Math.min(frameDt, 0.1);
     let steps = 0;
     while (this.accumulator >= FIXED_DT && steps < 6) {
@@ -106,5 +107,7 @@ export class Simulation {
       if (this.state.phase === PHASE_ENDED) break;
     }
     if (steps === 6) this.accumulator = 0; // avoid spiral
+    this.lastSteps = steps;
+    return steps;
   }
 }

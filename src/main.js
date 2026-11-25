@@ -40,6 +40,7 @@ let mouse = { x: 0, y: 0, world: { x: 0, y: 0 }, down: false, button: 0 };
 let dragging = false;
 let dragLast = null;
 let lastTime = performance.now();
+const perf = { fps: 0, frameMs: 0, simMs: 0, steps: 0, accum: 0, frames: 0, lastReport: performance.now() };
 
 function resize() { renderer.resize(); }
 window.addEventListener('resize', resize);
@@ -193,7 +194,21 @@ function frame(now) {
   const dt = Math.min(0.05, (now - lastTime) / 1000);
   lastTime = now;
 
+  const t0 = performance.now();
   sim.update(dt);
+  const simMs = performance.now() - t0;
+  perf.frames++;
+  perf.simMs += simMs;
+  perf.steps = sim.lastSteps || 0;
+  const nowPerf = performance.now();
+  if (nowPerf - perf.lastReport >= 500) {
+    perf.fps = (perf.frames * 1000) / (nowPerf - perf.lastReport);
+    perf.frameMs = (nowPerf - perf.lastReport) / perf.frames;
+    perf.avgSimMs = perf.simMs / perf.frames;
+    perf.frames = 0;
+    perf.simMs = 0;
+    perf.lastReport = nowPerf;
+  }
 
   if (!dragging) {
     if (world.phase === PHASE_DEPLOYMENT) canvas.style.cursor = 'crosshair';
@@ -204,7 +219,7 @@ function frame(now) {
   renderer.drawGrid();
   renderer.drawSoldiers(world, debug, selectedId, hoverId, ui.state.inspect);
   renderer.drawBrushPreview(mouse.world, ui.state.brush, ui.state.team, world.phase);
-  ui.update(world, sim, selectedId);
+  ui.update(world, sim, selectedId, perf);
 
   requestAnimationFrame(frame);
 }

@@ -32,6 +32,10 @@ export function createUI(root, callbacks) {
         <button id="debug-btn">Debug</button>
       </div>
       <div class="stat" id="stats"></div>
+      <div class="insp-section" style="padding:10px 0 0 0; margin-top:2px;">
+        <div class="label" style="margin-bottom:6px">Performance</div>
+        <div class="stat" id="perf"></div>
+      </div>
       <div class="help">
         Deploy: LMB place/remove. Sim: LMB inspect unit.<br>
         RMB/MMB drag: pan. Wheel: zoom. Debug shows FOV, targets, and arcs.
@@ -50,6 +54,7 @@ export function createUI(root, callbacks) {
   const clearBtn = root.querySelector('#clear-btn');
   const debugBtn = root.querySelector('#debug-btn');
   const statsEl = root.querySelector('#stats');
+  const perfEl = root.querySelector('#perf');
   const banner = root.querySelector('#banner');
   const inspector = root.querySelector('#inspector');
   let lastInspectorId = -2;
@@ -116,7 +121,7 @@ export function createUI(root, callbacks) {
     return 'idle';
   }
 
-  function update(simState, sim, selectedId = -1) {
+  function update(simState, sim, selectedId = -1, perf = null) {
     const s = simState.stats();
     const paused = !!sim.paused;
     statsEl.innerHTML = `
@@ -125,6 +130,13 @@ export function createUI(root, callbacks) {
       Kills: <span style="color:var(--red)">${s.redKills}</span> - <span style="color:var(--blue)">${s.blueKills}</span>
       &nbsp;|&nbsp; Time: ${s.time.toFixed(1)}s
     `;
+    if (perf) {
+      perfEl.innerHTML = `
+        FPS: <strong>${fmt(perf.fps || 0,1)}</strong> | Frame: ${fmt(perf.frameMs || 0,2)}ms<br>
+        Sim: ${fmt(perf.avgSimMs || 0,2)}ms/frame | Steps: ${perf.steps || 0}<br>
+        Soldiers: ${simState.count} total | ${s.redAlive + s.blueAlive} alive
+      `;
+    }
 
     if (s.phase === PHASE_DEPLOYMENT) {
       banner.style.display = 'block';
